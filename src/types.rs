@@ -6,5 +6,5 @@ pub struct RequestMessage {
     jsonrpc: String,
     pub id: u32,
     pub method: String,
-    pub params: String,
+    // pub params: String,
 }
