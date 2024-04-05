@@ -3,5 +3,5 @@
 with pkgs;
 
 mkShell {
-buildInputs = [ rustc cargo ]; # your dependencies here
+buildInputs = [ gdb rustc cargo ]; # your dependencies here
 }
