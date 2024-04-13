@@ -1,5 +1,6 @@
 mod types;
 mod logger;
+mod messages;
 
 use std::{error, fs, io::{self, BufRead, Read, Stdin, Write}};
 use std::str;
@@ -8,14 +9,12 @@ use types::RequestMessage;
 
 fn main() {
 
-    // fs::write("/home/vanilla/projects/rust/nvim-discord-rich-presence/log", "hello ").unwrap();
-
     let mut stdin = io::stdin();
-    // let mut msg_buf = [0_u8; 4000];
     
     loop {
         if let Ok(buf) = read(&mut stdin) {
-            logger::log(&buf, logger::MessageType::Error);
+            let request_message = decode(&buf);
+            message_handler(&request_message);
         }
     }
 }
@@ -50,6 +49,13 @@ fn send(message: &str) {
     io::stdout().flush().expect("unable to flush");
 }
 
-// fn encode() -> String {
-//     serde_json::to_string(message).unwrap()
-// }
+fn message_handler(message: &RequestMessage) {
+    let response = match message.method.as_str() {
+        "initialize" => messages::initialize(message),
+        _ => None,
+    };
+    
+    if let Some(res) = response {
+        send(&res);
+    }
+}
