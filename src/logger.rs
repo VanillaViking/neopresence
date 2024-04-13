@@ -3,7 +3,7 @@ use std::fs;
 use serde::{Deserialize, Serialize};
 use serde_repr::*;
 
-use crate::send;
+use crate::stdio;
 
 #[derive(Serialize, Deserialize)]
 struct LogMessage {
@@ -44,7 +44,7 @@ pub enum MessageType {
 pub fn log(message: &str, message_type: MessageType) {
     let log_message = LogMessage::new(String::from("window/logMessage"), LogMessageParams::new(message_type, message.to_owned()));
 
-    send(&serde_json::to_string(&log_message).unwrap());
+    stdio::send(&serde_json::to_string(&log_message).unwrap());
     fs::write("/home/vanilla/log", serde_json::to_string(&log_message).unwrap()).unwrap();
 
 }
