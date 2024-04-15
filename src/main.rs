@@ -1,34 +1,14 @@
-mod types;
-mod logger;
-mod messages;
-mod stdio;
-
-#[cfg(tests)]
-mod tests;
-
 use std::{error, fs, io::{self, BufRead, Read, Stdin, Write}};
-use std::str;
-use types::RequestMessage;
+use nvim_discord_rich_presence::{stdio, types::get_method};
 
 fn main() {
 
     let mut stdin = io::stdin();
     
     loop {
-        if let Ok(buf) = stdio::read(&mut stdin) {
-            let request_message = RequestMessage::decode(&buf);
-            message_handler(&request_message);
+        if let Ok(message) = stdio::read(&mut stdin) {
+            let method = get_method(&message);
+            nvim_discord_rich_presence::message_handler(&message, &method);
         }
-    }
-}
-
-fn message_handler(message: &RequestMessage) {
-    let response = match message.method.as_str() {
-        "initialize" => messages::initialize(message),
-        _ => None,
-    };
-    
-    if let Some(res) = response {
-        stdio::send(&res);
     }
 }
