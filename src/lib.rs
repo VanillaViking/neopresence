@@ -1,6 +1,6 @@
-use std::process::exit;
+use std::{process::exit, time::{SystemTime, UNIX_EPOCH}};
 
-use discord_presence::Client;
+use discord_presence::{models::ActivityTimestamps, Client};
 use logger::ghetto_log;
 use lsp_types::{InitializeResult, PositionEncodingKind, SaveOptions, ServerCapabilities, ServerInfo, TextDocumentSyncCapability, TextDocumentSyncKind, TextDocumentSyncOptions};
 use serde::Serialize;
@@ -12,14 +12,14 @@ pub mod types;
 mod logger;
 pub mod stdio;
 
-pub fn message_handler(message: &str, method: &str, drpc: &mut Client) {
+pub fn message_handler(message: &str, method: &str, drpc: &mut Client, start_time: u64) {
     ghetto_log(&method);
     let response = match method {
         "initialize" => {
             serde_json::to_string(&initialize(message)).ok()
         },
         "textDocument/didOpen" => {
-            did_open(message, drpc);
+            did_open(message, drpc, start_time);
             None
         },
         "shutdown" => {
@@ -95,7 +95,7 @@ fn initialize(message: &str) -> Response {
 
 }
 
-fn did_open(message: &str, drpc: &mut Client) {
+fn did_open(message: &str, drpc: &mut Client, start_time: u64) {
     let notification: DidOpenNotification = match serde_json::from_str(message) {
         Ok(notif) => notif,
         Err(e) => {
@@ -105,9 +105,18 @@ fn did_open(message: &str, drpc: &mut Client) {
     };
     let filename = get_file_name(notification.params.textDocument.uri).unwrap_or("unknown".to_string());
 
+    let blacklist = vec!["cmp_docs", "TelescopeResults", "TelescopePrompt"];
+
+    if let Some(_) = blacklist.iter().find(|n| n == &&notification.params.textDocument.language_id) {
+        return
+    }
+
     // Set the activity
     drpc.set_activity(|act| {
         act.state(format!("Programming with {}", notification.params.textDocument.language_id))
+            .timestamps(|_| {
+                ActivityTimestamps::new().start(start_time)
+            })
             .details(format!("Editing {}", filename))
             .assets(|ass| {
                 ass.large_image("nvim")
