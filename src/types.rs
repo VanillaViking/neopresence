@@ -1,23 +1,43 @@
+use lsp_types::TextDocumentItem;
 use serde::{Deserialize, Serialize};
 
-fn decode<'a, T: Deserialize<'a>>(input: &'a str) -> T {
+pub fn decode<'a, T: Deserialize<'a>>(input: &'a str) -> T {
     serde_json::from_str(input.trim()).unwrap()
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
+#[derive(Deserialize, Debug, PartialEq, Eq)]
 pub struct InitializeRequest {
     pub jsonrpc: String,
     pub id: u32,
     pub method: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
+#[derive(Deserialize, Debug, PartialEq, Eq)]
 struct InitialMessage {
     pub method: String,
 }
 pub fn get_method(input: &str) -> String {
     let message: InitialMessage = serde_json::from_str(input.trim()).unwrap();
     message.method
+}
+
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Response {
+    pub id: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub result: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct DidOpenNotification {
+    pub method: String,
+    pub params: DidOpenParams,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct DidOpenParams {
+    pub textDocument: TextDocumentItem
 }
 
 

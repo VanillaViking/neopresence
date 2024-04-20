@@ -6,7 +6,7 @@ fn main() {
     let mut stdin = io::stdin();
     
     loop {
-        if let Ok(message) = stdio::read(&mut stdin) {
+        if let Some(message) = stdio::read(&mut stdin).unwrap() {
             let method = get_method(&message);
             nvim_discord_rich_presence::message_handler(&message, &method);
         }

@@ -1,5 +1,6 @@
-use std::fs;
+use std::fs::{self, OpenOptions};
 
+use std::io::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_repr::*;
 
@@ -45,6 +46,16 @@ pub fn log(message: &str, message_type: MessageType) {
     let log_message = LogMessage::new(String::from("window/logMessage"), LogMessageParams::new(message_type, message.to_owned()));
 
     stdio::send(&serde_json::to_string(&log_message).unwrap());
-    fs::write("/home/vanilla/log", serde_json::to_string(&log_message).unwrap()).unwrap();
 
+}
+
+//TODO: panics if log file is missing
+pub fn ghetto_log(message: &str) {
+    let mut file = OpenOptions::new()
+        .write(true)
+        .append(true)
+        .open("/home/vanilla/log")
+        .unwrap();
+
+    writeln!(file, "{message}");
 }
