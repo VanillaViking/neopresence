@@ -1,5 +1,6 @@
 use std::process::exit;
 
+use discord_presence::Client;
 use logger::ghetto_log;
 use lsp_types::{InitializeResult, PositionEncodingKind, SaveOptions, ServerCapabilities, ServerInfo, TextDocumentSyncCapability, TextDocumentSyncKind, TextDocumentSyncOptions};
 use serde::Serialize;
@@ -11,14 +12,14 @@ pub mod types;
 mod logger;
 pub mod stdio;
 
-pub fn message_handler(message: &str, method: &str) {
+pub fn message_handler(message: &str, method: &str, drpc: &mut Client) {
     ghetto_log(&method);
     let response = match method {
         "initialize" => {
             serde_json::to_string(&initialize(message)).ok()
         },
         "textDocument/didOpen" => {
-            did_open(message);
+            did_open(message, drpc);
             None
         },
         "shutdown" => {
@@ -94,7 +95,7 @@ fn initialize(message: &str) -> Response {
 
 }
 
-fn did_open(message: &str) {
+fn did_open(message: &str, drpc: &mut Client) {
     let notification: DidOpenNotification = match serde_json::from_str(message) {
         Ok(notif) => notif,
         Err(e) => {
@@ -103,6 +104,16 @@ fn did_open(message: &str) {
         },
     };
     let filename = get_file_name(notification.params.textDocument.uri).unwrap_or("unknown".to_string());
+
+    // Set the activity
+    drpc.set_activity(|act| {
+        act.state(format!("Programming with {}", notification.params.textDocument.language_id))
+            .details(format!("Editing {}", filename))
+            .assets(|ass| {
+                ass.large_image("nvim")
+            })
+    })
+    .expect("Failed to set activity");
 }
 
 fn get_file_name(uri: lsp_types::Url) -> Option<String> {
