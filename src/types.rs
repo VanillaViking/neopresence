@@ -1,5 +1,45 @@
+use std::{process::exit, time::{SystemTime, UNIX_EPOCH}};
+
+use discord_presence::{models::EventData, Client, Event};
 use lsp_types::TextDocumentItem;
 use serde::{Deserialize, Serialize};
+
+pub struct Context {
+    pub drpc: Client,
+    pub start_time: u64,
+}
+impl Context {
+    pub fn new(discord_client_id: u64) -> Self {
+        let mut drpc = Client::new(discord_client_id);
+        drpc.on_ready(|_ctx| {
+            // println!("ready?");
+        })
+        .persist();
+        drpc.on_error(move |err| {
+            if let EventData::Error(err) = err.event {
+                let msg = err.message.unwrap_or_default();
+                if msg == "Io Error" {
+                    // TODO: change this to instead retry connection every ~5 seconds
+                    exit(1);
+                }
+            }
+        })
+        .persist();
+        drpc.start();
+        drpc.block_until_event(Event::Ready).unwrap();
+
+        let start_time = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("Failed to get system time")
+            .as_secs();
+
+        return Self {
+            drpc,
+            start_time,
+        }
+
+    }
+}
 
 pub fn decode<'a, T: Deserialize<'a>>(input: &'a str) -> T {
     serde_json::from_str(input.trim()).unwrap()

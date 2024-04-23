@@ -7,23 +7,6 @@ use crate::logger::{self, ghetto_log};
 
 
 pub fn read(inp: &mut Stdin) -> io::Result<Option<String>> {
-    // let mut buf = String::new();
-    // let mut content_length = None;
-    // buf.clear();
-    // inp.read_line(&mut buf)?;
-    // ghetto_log(&buf);
-    // if buf.contains("Content-Length") {
-    //     let (_, c_len_str) = buf.split_once(" ").ok_or("invalid header")?;
-    //     content_length = Some(c_len_str.trim().parse::<usize>()?);
-    // }
-
-    // let mut buf = buf.into_bytes();
-    // buf.resize(content_length.ok_or("err")? + 2, 0);
-
-    // inp.read_exact(&mut buf)?;
-    // let buf = String::from_utf8(buf)?;
-    // Ok(buf)
-
     // copied from rust analyzer
     fn invalid_data(error: impl Into<Box<dyn std::error::Error + Send + Sync>>) -> io::Error {
         io::Error::new(io::ErrorKind::InvalidData, error)
@@ -37,7 +20,7 @@ pub fn read(inp: &mut Stdin) -> io::Result<Option<String>> {
             return Ok(None);
         }
         if !buf.ends_with("\r\n") {
-            return Err(invalid_data("malformed header"));
+            return Err(invalid_data(format!("malformed header: {:?}", buf)));
         }
         let buf = &buf[..buf.len() - 2];
         if buf.is_empty() {
@@ -52,7 +35,6 @@ pub fn read(inp: &mut Stdin) -> io::Result<Option<String>> {
         }
     }
     let size: usize = size.ok_or_else(|| invalid_data("no Content-Length".to_owned()))?;
-    ghetto_log(&format!("{size}"));
     let mut buf = buf.into_bytes();
     buf.resize(size, 0);
     inp.read_exact(&mut buf)?;
@@ -63,7 +45,7 @@ pub fn read(inp: &mut Stdin) -> io::Result<Option<String>> {
 //TODO: change to write_all
 pub fn send(message: &str) {
     print!("Content-Length: {}\r\n\r\n", message.len());
-    print!("{message}\r\n\r\n");
+    print!("{message}");
     if let Err(e) = io::stdout().flush() {
         ghetto_log(&e.to_string());
     }
