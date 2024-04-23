@@ -19,6 +19,7 @@ impl Context {
             if let EventData::Error(err) = err.event {
                 let msg = err.message.unwrap_or_default();
                 if msg == "Io Error" {
+                    // TODO: change this to instead retry connection every ~5 seconds
                     exit(1);
                 }
             }
