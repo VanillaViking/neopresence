@@ -1,10 +1,10 @@
-use std::{process::exit, time::{SystemTime, UNIX_EPOCH}};
+use std::process::exit;
 
-use discord_presence::{models::ActivityTimestamps, Client};
+use discord_presence::models::ActivityTimestamps;
 use logger::ghetto_log;
 use lsp_types::{InitializeResult, PositionEncodingKind, SaveOptions, ServerCapabilities, ServerInfo, TextDocumentSyncCapability, TextDocumentSyncKind, TextDocumentSyncOptions};
-use serde::Serialize;
-use types::DidOpenNotification;
+
+use types::{get_method, Context, DidOpenNotification};
 
 use crate::types::{InitializeRequest, Response};
 
@@ -12,14 +12,13 @@ pub mod types;
 mod logger;
 pub mod stdio;
 
-pub fn message_handler(message: &str, method: &str, drpc: &mut Client, start_time: u64) {
-    ghetto_log(&method);
-    let response = match method {
+pub fn message_handler(message: &str, context: &mut Context) {
+    let response = match get_method(message).as_str() {
         "initialize" => {
             serde_json::to_string(&initialize(message)).ok()
         },
         "textDocument/didOpen" => {
-            did_open(message, drpc, start_time);
+            did_open(message, context);
             None
         },
         "shutdown" => {
@@ -31,7 +30,6 @@ pub fn message_handler(message: &str, method: &str, drpc: &mut Client, start_tim
     
     if let Some(res) = response {
         // logger::log(&res, logger::MessageType::Error);
-        ghetto_log(&res);
         stdio::send(&res);
     }
 }
@@ -95,7 +93,7 @@ fn initialize(message: &str) -> Response {
 
 }
 
-fn did_open(message: &str, drpc: &mut Client, start_time: u64) {
+fn did_open(message: &str, context: &mut Context) {
     let notification: DidOpenNotification = match serde_json::from_str(message) {
         Ok(notif) => notif,
         Err(e) => {
@@ -112,10 +110,10 @@ fn did_open(message: &str, drpc: &mut Client, start_time: u64) {
     }
 
     // Set the activity
-    drpc.set_activity(|act| {
+    context.drpc.set_activity(|act| {
         act.state(format!("Programming with {}", notification.params.textDocument.language_id))
             .timestamps(|_| {
-                ActivityTimestamps::new().start(start_time)
+                ActivityTimestamps::new().start(context.start_time)
             })
             .details(format!("Editing {}", filename))
             .assets(|ass| {
@@ -134,10 +132,6 @@ mod tests {
     use lsp_types::Url;
 
     use crate::get_file_name;
-
-    #[test]
-    fn initialize() {
-    }
 
     #[test]
     fn get_file_name_works() {

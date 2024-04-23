@@ -1,4 +1,4 @@
-use std::fs::{self, OpenOptions};
+use std::fs::OpenOptions;
 
 use std::io::prelude::*;
 use serde::{Deserialize, Serialize};
