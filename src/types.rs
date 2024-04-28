@@ -1,12 +1,13 @@
-use std::{process::exit, time::{SystemTime, UNIX_EPOCH}};
+use std::{collections::HashMap, process::exit, time::{SystemTime, UNIX_EPOCH}};
 
 use discord_presence::{models::EventData, Client, Event};
-use lsp_types::TextDocumentItem;
+use lsp_types::{DidChangeTextDocumentParams, TextDocumentItem};
 use serde::{Deserialize, Serialize};
 
 pub struct Context {
     pub drpc: Client,
     pub start_time: u64,
+    pub changed_files: HashMap<String, FileData>,
 }
 impl Context {
     pub fn new(discord_client_id: u64) -> Self {
@@ -36,9 +37,27 @@ impl Context {
         return Self {
             drpc,
             start_time,
+            changed_files: HashMap::new()
         }
 
     }
+
+    pub fn update_file_contents(&mut self, filename: &str, new_contents: &str) -> Result<(), &str> {
+        if filename == "" {
+            return Err("no filename")
+        }
+
+        let file_data = self.changed_files.entry(filename.to_string()).or_insert(FileData { original_contents: new_contents.to_owned(), latest_contents: String::from("")});
+
+        file_data.latest_contents = new_contents.to_string();
+
+        Ok(())
+    }
+}
+
+pub struct FileData {
+    pub original_contents: String,
+    pub latest_contents: String,
 }
 
 pub fn decode<'a, T: Deserialize<'a>>(input: &'a str) -> T {
@@ -73,6 +92,12 @@ pub struct Response {
 pub struct DidOpenNotification {
     pub method: String,
     pub params: DidOpenParams,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct DidChangeNotification {
+    pub method: String,
+    pub params: DidChangeTextDocumentParams,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
