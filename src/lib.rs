@@ -129,7 +129,7 @@ fn did_open(message: &str, context: &mut Context) {
 
     // Set the activity
     context.drpc.set_activity(|act| {
-        act.state(format!("{} deletions, {} additions in {} files", deletions, additions, context.changed_files.len()))
+        act.state(format!("{} additions, {} deletetions in {} files", additions, deletions, context.changed_files.len()))
             .timestamps(|_| {
                 ActivityTimestamps::new().start(context.start_time)
             })
