@@ -41,7 +41,7 @@ pub fn discord_runner(discord_client_id: u64, rx: Receiver<DiscordData>) {
 
         loop {
             let mut discord_data = None;
-            while let Ok(d) = rx.try_recv() {
+            while let Ok(d) = rx.recv_timeout(time::Duration::from_secs(5)) {
                 discord_data = Some(d);
             }
 
@@ -209,7 +209,6 @@ fn get_diff(old: &str, new: &str) -> (u32, u32) {
     let deletions = old_lines.iter().filter(|ol| new_lines.iter().find(|nl| nl == ol).is_none()).count();
 
     let additions = new_lines.iter().filter(|nl| old_lines.iter().find(|ol| {
-        dbg!(nl, ol);
         ol == nl
     }).is_none()).count();
     (deletions as u32, additions as u32)
