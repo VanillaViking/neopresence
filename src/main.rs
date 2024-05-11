@@ -1,10 +1,15 @@
-use std::io::{self};
-use nvim_discord_rich_presence::{stdio, types::Context};
+use std::{io, sync::mpsc, thread};
+use nvim_discord_rich_presence::{discord_runner, stdio, types::Context};
 
 
 fn main() {
     let mut stdin = io::stdin();
-    let mut context = Context::new(1231109585633284168);
+    let (discord_tx, discord_rx) = mpsc::channel();
+    let mut context = Context::new(discord_tx);
+
+    thread::spawn(move || {
+        discord_runner(1231109585633284168, discord_rx);
+    });
     
     loop {
         if let Some(message) = stdio::read(&mut stdin).unwrap() {

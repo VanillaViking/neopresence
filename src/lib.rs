@@ -1,16 +1,69 @@
-use std::process::exit;
+use core::time;
+use std::{process::exit, sync::mpsc::Receiver, thread, time::{SystemTime, UNIX_EPOCH}};
 
-use discord_presence::models::ActivityTimestamps;
+use discord_presence::{models::{ActivityTimestamps, EventData}, Client, Event};
 use logger::ghetto_log;
 use lsp_types::{InitializeResult, PositionEncodingKind, SaveOptions, ServerCapabilities, ServerInfo, TextDocumentSyncCapability, TextDocumentSyncKind, TextDocumentSyncOptions};
 
-use types::{get_method, Context, DidChangeNotification, DidOpenNotification};
+use types::{get_method, Context, DidChangeNotification, DidOpenNotification, DiscordData};
 
 use crate::types::{InitializeRequest, Response};
 
 pub mod types;
 mod logger;
 pub mod stdio;
+
+
+pub fn discord_runner(discord_client_id: u64, rx: Receiver<DiscordData>) {
+        let mut drpc = Client::new(discord_client_id);
+        drpc.on_ready(|_ctx| {
+            // println!("ready?");
+        })
+        .persist();
+        drpc.on_error(move |err| {
+            if let EventData::Error(err) = err.event {
+                let msg = err.message.unwrap_or_default();
+                if msg == "Io Error" {
+                    // TODO: change this to instead retry connection every ~5 seconds
+                    exit(1);
+                }
+            }
+        })
+        .persist();
+        drpc.start();
+        drpc.block_until_event(Event::Ready).unwrap();
+
+        let start_time = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("Failed to get system time")
+            .as_secs();
+
+
+        loop {
+            let mut discord_data = None;
+            while let Ok(d) = rx.try_recv() {
+                discord_data = Some(d);
+            }
+
+            if let Some(data) = discord_data {
+                // Set the activity
+                drpc.set_activity(|act| {
+                    act.state(format!("{} additions, {} deletetions in {} files", data.additions, data.deletions, data.num_files))
+                        .timestamps(|_| {
+                            ActivityTimestamps::new().start(start_time)
+                        })
+                    .details(format!("Editing {}", data.filename))
+                        .assets(|ass| {
+                            ass.large_image("nvim")
+                        })
+                })
+                .expect("Failed to set activity");
+                thread::sleep(time::Duration::from_secs(5));
+            }
+        }
+
+
+}
 
 pub fn message_handler(message: &str, context: &mut Context) {
     let response = match get_method(message).as_str() {
@@ -97,7 +150,7 @@ fn initialize(message: &str) -> Response {
 
 }
 
-fn did_open(message: &str, context: &mut Context) {
+fn did_open(message: &str, _context: &mut Context) {
     let notification: DidOpenNotification = match serde_json::from_str(message) {
         Ok(notif) => notif,
         Err(e) => {
@@ -117,28 +170,6 @@ fn did_open(message: &str, context: &mut Context) {
         return;
     }
 
-    // TODO: do this better, maybe set activity to "Idling"
-    let mut additions = 0;
-    let mut deletions = 0;
-
-    for file_data in context.changed_files.values() {
-        let (del, add) = get_diff(&file_data.original_contents, &file_data.latest_contents);
-        additions += add;
-        deletions += del;
-    }
-
-    // Set the activity
-    context.drpc.set_activity(|act| {
-        act.state(format!("{} additions, {} deletetions in {} files", additions, deletions, context.changed_files.len()))
-            .timestamps(|_| {
-                ActivityTimestamps::new().start(context.start_time)
-            })
-            .details(format!("Editing {}", filename))
-            .assets(|ass| {
-                ass.large_image("nvim")
-            })
-    })
-    .expect("Failed to set activity");
 }
 
 fn did_change(message: &str, context: &mut Context) {
@@ -150,6 +181,12 @@ fn did_change(message: &str, context: &mut Context) {
         },
     };
     let filename = get_file_name(&notification.params.text_document.uri).unwrap_or("");
+
+    // let blacklist = vec!["cmp_docs", "TelescopeResults", "TelescopePrompt", "cmp_menu"];
+    // if let Some(_) = blacklist.iter().find(|n| n == &&notification.params.textDocument.language_id) {
+    //     return
+    // }
+
     if filename == "" {
         return;
     }

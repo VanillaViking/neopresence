@@ -1,47 +1,25 @@
-use std::{collections::HashMap, process::exit, time::{SystemTime, UNIX_EPOCH}};
+use std::{collections::HashMap, process::exit, sync::mpsc::Sender, time::{SystemTime, UNIX_EPOCH}};
 
 use discord_presence::{models::EventData, Client, Event};
 use lsp_types::{DidChangeTextDocumentParams, TextDocumentItem};
 use serde::{Deserialize, Serialize};
 
+use crate::get_diff;
+
 pub struct Context {
-    pub drpc: Client,
-    pub start_time: u64,
     pub changed_files: HashMap<String, FileData>,
+    pub discord_tx: Sender<DiscordData>,
 }
 impl Context {
-    pub fn new(discord_client_id: u64) -> Self {
-        let mut drpc = Client::new(discord_client_id);
-        drpc.on_ready(|_ctx| {
-            // println!("ready?");
-        })
-        .persist();
-        drpc.on_error(move |err| {
-            if let EventData::Error(err) = err.event {
-                let msg = err.message.unwrap_or_default();
-                if msg == "Io Error" {
-                    // TODO: change this to instead retry connection every ~5 seconds
-                    exit(1);
-                }
-            }
-        })
-        .persist();
-        drpc.start();
-        drpc.block_until_event(Event::Ready).unwrap();
-
-        let start_time = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("Failed to get system time")
-            .as_secs();
-
+    pub fn new(discord_tx: Sender<DiscordData>) -> Self {
         return Self {
-            drpc,
-            start_time,
-            changed_files: HashMap::new()
+            changed_files: HashMap::new(),
+            discord_tx,
         }
-
     }
-
+    
+    //TODO: change contents to option, so that did_open can also use this function to update the
+    //discord status
     pub fn update_file_contents(&mut self, filename: &str, new_contents: &str) -> Result<(), &str> {
         if filename == "" {
             return Err("no filename")
@@ -51,8 +29,34 @@ impl Context {
 
         file_data.latest_contents = new_contents.to_string();
 
+        // TODO: do this better, maybe set activity to "Idling"
+        let mut additions = 0;
+        let mut deletions = 0;
+
+        for file_data in self.changed_files.values() {
+            let (del, add) = get_diff(&file_data.original_contents, &file_data.latest_contents);
+            additions += add;
+            deletions += del;
+        }
+
+        let data = DiscordData {
+            additions,
+            deletions,
+            num_files: self.changed_files.len() as u32,
+            filename: filename.to_string(),
+        };
+
+        self.discord_tx.send(data);
+
         Ok(())
     }
+}
+
+pub struct DiscordData {
+    pub additions: u32,
+    pub deletions: u32,
+    pub num_files: u32,
+    pub filename: String,
 }
 
 pub struct FileData {
