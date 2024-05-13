@@ -194,11 +194,6 @@ fn did_change(message: &str, context: &mut Context) {
     };
     let filename = get_file_name(&notification.params.text_document.uri).unwrap_or("");
 
-    // let blacklist = vec!["cmp_docs", "TelescopeResults", "TelescopePrompt", "cmp_menu"];
-    // if let Some(_) = blacklist.iter().find(|n| n == &&notification.params.textDocument.language_id) {
-    //     return
-    // }
-
     if filename == "" {
         return;
     }
