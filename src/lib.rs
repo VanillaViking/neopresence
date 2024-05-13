@@ -198,6 +198,7 @@ fn did_change(message: &str, context: &mut Context) {
         return;
     }
 
+    context.current_file = Some(filename.to_owned()); 
     let _ = context.update_file_contents(filename, &notification.params.content_changes[0].text);
 }
 
