@@ -10,7 +10,9 @@ fn main() {
     thread::spawn(move || {
         discord_runner(1231109585633284168, discord_rx);
     });
-    
+
+    context.send_discord();
+
     loop {
         if let Some(message) = stdio::read(&mut stdin).unwrap() {
             nvim_discord_rich_presence::message_handler(&message, &mut context);

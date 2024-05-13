@@ -1,25 +1,29 @@
-use std::{collections::HashMap, process::exit, sync::mpsc::Sender, time::{SystemTime, UNIX_EPOCH}};
+use std::{collections::HashMap, env::remove_var, error::Error, io, process::{exit, Command}, sync::mpsc::Sender, time::{SystemTime, UNIX_EPOCH}};
 
 use discord_presence::{models::EventData, Client, Event};
 use lsp_types::{DidChangeTextDocumentParams, TextDocumentItem};
 use serde::{Deserialize, Serialize};
 
-use crate::get_diff;
+use crate::{get_diff, get_remote_url, logger::ghetto_log};
 
 pub struct Context {
     pub changed_files: HashMap<String, FileData>,
     pub discord_tx: Sender<DiscordData>,
+    pub current_file: Option<String>,
+    pub remote_url: Option<String>,
 }
 impl Context {
     pub fn new(discord_tx: Sender<DiscordData>) -> Self {
+
         return Self {
             changed_files: HashMap::new(),
             discord_tx,
+            current_file: None,
+            remote_url: get_remote_url().ok(),
         }
     }
+
     
-    //TODO: change contents to option, so that did_open can also use this function to update the
-    //discord status
     pub fn update_file_contents(&mut self, filename: &str, new_contents: &str) -> Result<(), &str> {
         if filename == "" {
             return Err("no filename")
@@ -29,6 +33,11 @@ impl Context {
 
         file_data.latest_contents = new_contents.to_string();
 
+        self.send_discord();
+        Ok(())
+    }
+
+    pub fn send_discord(&self) {
         // TODO: do this better, maybe set activity to "Idling"
         let mut additions = 0;
         let mut deletions = 0;
@@ -43,12 +52,11 @@ impl Context {
             additions,
             deletions,
             num_files: self.changed_files.len() as u32,
-            filename: filename.to_string(),
+            filename: self.current_file.to_owned(),
+            remote_url: self.remote_url.to_owned(),
         };
 
         self.discord_tx.send(data);
-
-        Ok(())
     }
 }
 
@@ -56,7 +64,8 @@ pub struct DiscordData {
     pub additions: u32,
     pub deletions: u32,
     pub num_files: u32,
-    pub filename: String,
+    pub filename: Option<String>,
+    pub remote_url: Option<String>,
 }
 
 pub struct FileData {

@@ -1,5 +1,5 @@
 use core::time;
-use std::{process::exit, sync::mpsc::Receiver, thread, time::{SystemTime, UNIX_EPOCH}};
+use std::{error::Error, process::{exit, Command}, sync::mpsc::Receiver, thread, time::{SystemTime, UNIX_EPOCH}};
 
 use discord_presence::{models::{ActivityTimestamps, EventData}, Client, Event};
 use logger::ghetto_log;
@@ -47,15 +47,25 @@ pub fn discord_runner(discord_client_id: u64, rx: Receiver<DiscordData>) {
 
             if let Some(data) = discord_data {
                 // Set the activity
+                let details = match data.filename {
+                    Some(name) => format!("Editing {}", name),
+                    None => "Idling".to_string(),
+                };
                 drpc.set_activity(|act| {
                     act.state(format!("{} additions, {} deletetions in {} files", data.additions, data.deletions, data.num_files))
                         .timestamps(|_| {
                             ActivityTimestamps::new().start(start_time)
                         })
-                    .details(format!("Editing {}", data.filename))
+                    .details(details)
                         .assets(|ass| {
                             ass.large_image("nvim")
                         })
+                    .append_buttons(|mut button| {
+                        if let Some(url) = data.remote_url {
+                            button = button.label("Repository Link").url(url);
+                        }
+                        button
+                    })
                 })
                 .expect("Failed to set activity");
                 thread::sleep(time::Duration::from_secs(5));
@@ -79,7 +89,7 @@ pub fn message_handler(message: &str, context: &mut Context) {
             None
         }
         "shutdown" => {
-            ghetto_log("received shutdown");
+            // ghetto_log("received shutdown");
             exit(0);
         },
         _ => None,
@@ -147,10 +157,9 @@ fn initialize(message: &str) -> Response {
                 }
             }).unwrap())
     }
-
 }
 
-fn did_open(message: &str, _context: &mut Context) {
+fn did_open(message: &str, context: &mut Context) {
     let notification: DidOpenNotification = match serde_json::from_str(message) {
         Ok(notif) => notif,
         Err(e) => {
@@ -169,6 +178,9 @@ fn did_open(message: &str, _context: &mut Context) {
     if filename == "" {
         return;
     }
+
+    context.current_file = Some(filename.to_owned()); 
+    context.send_discord();
 
 }
 
@@ -192,7 +204,6 @@ fn did_change(message: &str, context: &mut Context) {
     }
 
     let _ = context.update_file_contents(filename, &notification.params.content_changes[0].text);
-
 }
 
 fn get_file_name(uri: &lsp_types::Url) -> Option<&str> {
@@ -212,6 +223,26 @@ fn get_diff(old: &str, new: &str) -> (u32, u32) {
         ol == nl
     }).is_none()).count();
     (deletions as u32, additions as u32)
+}
+
+fn get_remote_url() -> Result<String, Box<dyn Error>> {
+    let output = Command::new("git")
+        .arg("config")
+        .arg("--get")
+        .arg("remote.origin.url")
+        .output()?;
+
+    let raw_url = String::from_utf8(output.stdout.as_slice().to_owned())?;
+
+    // means it is a github ssh url (probably)
+    if raw_url.contains("@") {
+        let (_, trunc_url) = raw_url.split_once("@").unwrap();
+        let mut url = trunc_url.replace(":", "/");
+        url = url.replace(".git", "");
+        return Ok(format!("https://{}", url))
+    }
+
+    Ok(raw_url)
 }
 
 #[cfg(test)]
