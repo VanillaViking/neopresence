@@ -37,7 +37,8 @@ pub fn discord_runner(discord_client_id: u64, rx: Receiver<DiscordData>) {
             .duration_since(UNIX_EPOCH)
             .expect("Failed to get system time")
             .as_secs();
-
+        
+        const MAX_BYTES: usize = 128;
 
         loop {
             let mut discord_data = None;
@@ -47,16 +48,17 @@ pub fn discord_runner(discord_client_id: u64, rx: Receiver<DiscordData>) {
 
             if let Some(data) = discord_data {
                 // Set the activity
-                let details = match data.filename {
+                let details = clamp(match data.filename {
                     Some(name) => format!("Editing {}", name),
                     None => "Idling".to_string(),
-                };
-                drpc.set_activity(|act| {
+                }, MAX_BYTES);
+                // TODO: handle this result
+                let _ = drpc.set_activity(|act| {
                     act.state(format!("{} additions, {} deletetions in {} files", data.additions, data.deletions, data.num_files))
                         .timestamps(|_| {
                             ActivityTimestamps::new().start(start_time)
                         })
-                    .details(details)
+                    .details(clamp(details, MAX_BYTES))
                         .assets(|ass| {
                             ass.large_image("nvim")
                         })
@@ -66,8 +68,7 @@ pub fn discord_runner(discord_client_id: u64, rx: Receiver<DiscordData>) {
                         }
                         button
                     })
-                })
-                .expect("Failed to set activity");
+                });
                 thread::sleep(time::Duration::from_secs(5));
             }
         }
@@ -219,6 +220,17 @@ fn get_diff(old: &str, new: &str) -> (u32, u32) {
         ol == nl
     }).is_none()).count();
     (deletions as u32, additions as u32)
+}
+
+fn clamp(mut str: String, len: usize) -> String {
+    const ELLIPSES_LEN: usize = 3;
+    if str.len() > len {
+        while str.len() > (len - ELLIPSES_LEN) {
+            str.pop();
+        }
+        str.push_str("...");
+    }
+    str
 }
 
 fn get_remote_url() -> Result<String, Box<dyn Error>> {
