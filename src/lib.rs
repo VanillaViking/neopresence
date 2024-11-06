@@ -208,18 +208,51 @@ fn get_file_name(uri: &lsp_types::Url) -> Option<&str> {
 }
 
 fn get_diff(old: &str, new: &str) -> (u32, u32) {
-    let mut old_lines: Vec<&str> = old.lines().collect();
+    let mut deletions = 0;
+    let mut additions = 0;
+
+    let old_lines: Vec<&str> = old.lines().collect();
     let new_lines: Vec<&str> = new.lines().collect();
 
-    // TODO: myers diff algorithm
-    
-    // present in old but not in new
-    let deletions = old_lines.iter().filter(|ol| new_lines.iter().find(|nl| nl == ol).is_none()).count();
+    let max = old_lines.len() + new_lines.len();
+    let mut v = vec![0; 2 * max + 1];
+    let mut trace: Vec<Vec<usize>> = Vec::new();
 
-    let additions = new_lines.iter().filter(|nl| old_lines.iter().find(|ol| {
-        ol == nl
-    }).is_none()).count();
-    (deletions as u32, additions as u32)
+    let mut x: usize = 0;
+    let mut y: usize = 0;
+    let mut final_k = 0;
+    
+    // TODO: change to linear space version
+    'shortestedit: for d in 0..=max {
+        trace.push(v.clone());
+        for k in ((-1 * d as i32)..=(d as i32)).step_by(2) {
+            if k == -1 * (d as i32) || (k != d as i32 && v[(k + max as i32) as usize -1] < v[(k + max as i32) as usize +1]) {
+                x = v[(k + max as i32) as usize + 1];
+            } else {
+                x = v[(k + max as i32) as usize - 1] + 1;
+            }
+            y = (x as i32 - k) as usize;
+
+            while x < old_lines.len() && y < new_lines.len() && old_lines[x] == new_lines[y] {
+                x += 1;
+                y += 1;
+            }
+            v[(k + max as i32) as usize] = x;
+
+            if x >= old_lines.len() && y >= new_lines.len() {
+                trace.push(v.clone());
+                final_k = k;
+                break 'shortestedit;
+            }
+        }
+    }
+
+    
+    
+    
+
+
+    (deletions, additions)
 }
 
 fn clamp(mut str: String, len: usize) -> String {
