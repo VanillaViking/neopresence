@@ -1,10 +1,9 @@
-use std::{collections::HashMap, env::remove_var, error::Error, io, process::{exit, Command}, sync::mpsc::Sender, time::{SystemTime, UNIX_EPOCH}};
+use std::{collections::HashMap, sync::mpsc::Sender};
 
-use discord_presence::{models::EventData, Client, Event};
 use lsp_types::{DidChangeTextDocumentParams, TextDocumentItem};
 use serde::{Deserialize, Serialize};
 
-use crate::{get_diff, get_remote_url, logger::ghetto_log};
+use crate::{diff::get_diff, get_remote_url};
 
 pub struct Context {
     pub changed_files: HashMap<String, FileData>,
