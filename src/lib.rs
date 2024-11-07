@@ -65,6 +65,8 @@ pub fn discord_runner(discord_client_id: u64, rx: Receiver<DiscordData>) {
                     .append_buttons(|mut button| {
                         if let Some(url) = data.remote_url {
                             button = button.label("Repository Link").url(url);
+                        } else {
+                            logger::log("No remote url found", logger::MessageType::Warning);
                         }
                         button
                     })
@@ -215,45 +217,53 @@ fn get_diff(old: &str, new: &str) -> (u32, u32) {
     let new_lines: Vec<&str> = new.lines().collect();
 
     let max = old_lines.len() + new_lines.len();
-    let mut v = vec![0; 2 * max + 1];
-    let mut trace: Vec<Vec<usize>> = Vec::new();
+    let mut v = vec![-1; 2 * max + 1];
+    v[max + 1] = 0;
+    let mut trace: Vec<Vec<i32>> = Vec::new();
 
-    let mut x: usize = 0;
-    let mut y: usize = 0;
-    let mut final_k = 0;
+    let mut x: i32 = 0;
+    let mut y: i32 = 0;
     
     // TODO: change to linear space version
     'shortestedit: for d in 0..=max {
         trace.push(v.clone());
         for k in ((-1 * d as i32)..=(d as i32)).step_by(2) {
-            if k == -1 * (d as i32) || (k != d as i32 && v[(k + max as i32) as usize -1] < v[(k + max as i32) as usize +1]) {
+            if k == (-1 * (d as i32)) || (k != d as i32 && v[(k + max as i32) as usize -1] < v[(k + max as i32) as usize +1]) {
                 x = v[(k + max as i32) as usize + 1];
             } else {
                 x = v[(k + max as i32) as usize - 1] + 1;
             }
-            y = (x as i32 - k) as usize;
+            y = x - k;
 
-            while x < old_lines.len() && y < new_lines.len() && old_lines[x] == new_lines[y] {
+            while (x as usize) < old_lines.len() && (y as usize) < new_lines.len() && old_lines[x as usize] == new_lines[y as usize] {
                 x += 1;
                 y += 1;
             }
             v[(k + max as i32) as usize] = x;
 
-            if x >= old_lines.len() && y >= new_lines.len() {
-                trace.push(v.clone());
-                final_k = k;
+            if x as usize >= old_lines.len() && y as usize >= new_lines.len() {
+                // trace.push(v.clone());
                 break 'shortestedit;
             }
         }
     }
+    
+    let mut k = old_lines.len() as i32 - new_lines.len() as i32;
 
-    
-    
-    
-
+    for trace_idx in (1..(trace.len())).rev() {
+        let v = &trace[trace_idx];
+        if k == (-1 * (trace_idx as i32)) || (k != trace_idx as i32 && v[(k + max as i32) as usize -1] < v[(k + max as i32) as usize +1]) {
+            k = k + 1;
+            additions += 1;
+        } else {
+            k = k - 1;
+            deletions += 1;
+        }
+    }
 
     (deletions, additions)
 }
+
 
 fn clamp(mut str: String, len: usize) -> String {
     const ELLIPSES_LEN: usize = 3;
@@ -300,12 +310,12 @@ mod tests {
 
     #[test]
     fn diff_works() {
-        let file1 = "the
+        let file1 = "teh
 quick
 brown
 fox";
 
-        let file2 = "teh
+        let file2 = "the
 quick
 brown
 fox
