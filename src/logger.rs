@@ -1,15 +1,15 @@
 use std::fs::OpenOptions;
 
-use std::io::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_repr::*;
+use std::io::prelude::*;
 
-use crate::stdio;
+use crate::nvim;
 
 #[derive(Serialize, Deserialize)]
 struct LogMessage {
     method: String,
-    params: LogMessageParams
+    params: LogMessageParams,
 }
 
 impl LogMessage {
@@ -22,15 +22,17 @@ impl LogMessage {
 struct LogMessageParams {
     #[serde(rename = "type")]
     message_type: MessageType,
-    message: String
+    message: String,
 }
 
 impl LogMessageParams {
     fn new(message_type: MessageType, message: String) -> Self {
-        Self { message_type, message }
+        Self {
+            message_type,
+            message,
+        }
     }
 }
-
 
 #[derive(Serialize_repr, Deserialize_repr, PartialEq, Debug)]
 #[repr(u8)]
@@ -43,10 +45,12 @@ pub enum MessageType {
 }
 
 pub fn log(message: &str, message_type: MessageType) {
-    let log_message = LogMessage::new(String::from("window/logMessage"), LogMessageParams::new(message_type, message.to_owned()));
+    let log_message = LogMessage::new(
+        String::from("window/logMessage"),
+        LogMessageParams::new(message_type, message.to_owned()),
+    );
 
-    stdio::send(&serde_json::to_string(&log_message).unwrap());
-
+    nvim::send(&serde_json::to_string(&log_message).unwrap());
 }
 
 //TODO: panics if log file is missing
