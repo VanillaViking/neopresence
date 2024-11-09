@@ -2,6 +2,10 @@
 name = "neopresence"
 version = "1.0.0"
 edition = "2021"
+description = "Discord rich presence plugin for neovim with features such as session diffs & language detection."
+license = "MIT"
+authors = ["Ashwin Rajesh"]
+repository = "https://github.com/VanillaViking/nvim-discord-presence"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
