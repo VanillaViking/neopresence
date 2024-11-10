@@ -440,6 +440,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "neopresence"
+version = "1.0.0"
+dependencies = [
+ "anyhow",
+ "ctrlc",
+ "discord-presence",
+ "log",
+ "log4rs",
+ "lsp-types",
+ "serde",
+ "serde_json",
+ "serde_repr",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "version-sync",
+]
+
+[[package]]
 name = "nix"
 version = "0.28.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -491,25 +510,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "da0df0e5185db44f69b44f26786fe401b6c293d1907744beaa7fa62b2e5a517a"
 dependencies = [
  "autocfg",
-]
-
-[[package]]
-name = "nvim-discord-rich-presence"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "ctrlc",
- "discord-presence",
- "log",
- "log4rs",
- "lsp-types",
- "serde",
- "serde_json",
- "serde_repr",
- "tokio",
- "tracing",
- "tracing-subscriber",
- "version-sync",
 ]
 
 [[package]]

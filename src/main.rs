@@ -94,6 +94,8 @@ fn update_file_contents(
     if filename == "" {
         return
     }
+    
+    state.current_file = Some(filename.clone());
 
     let file_data = state.changed_files.entry(filename).or_insert(FileData {
         original_contents: new_contents.to_owned(),
