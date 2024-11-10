@@ -3,6 +3,10 @@
 
 A plugin for discord rich presence in neovim
 
+![image](https://github.com/user-attachments/assets/02cbfb99-7480-4202-b19c-25fdd493aa80)
+
+
+
 features:
 * language detection
 * session diff of additions & deletions
