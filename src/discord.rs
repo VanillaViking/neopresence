@@ -66,7 +66,7 @@ fn update_discord_status(data: DiscordData, drpc: &mut Client) {
     // TODO: handle this result
     let _ = drpc.set_activity(|act| {
         act.state(format!(
-            "{} additions, {} deletetions in {} files",
+            "{} additions, {} deletions in {} files",
             data.additions, data.deletions, data.num_files
         ))
         .timestamps(|_| ActivityTimestamps::new().start(data.start_time))
